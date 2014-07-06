@@ -14,7 +14,7 @@ Options:
 from __future__ import unicode_literals
 from __future__ import print_function
 
-VERSION = '0.1.0'
+from . import VERSION
 
 import os
 import shutil
