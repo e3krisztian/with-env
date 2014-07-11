@@ -7,13 +7,13 @@ Usage:
 
 Options:
     -p <python>, --python <python>
-                Specify alternative python interpreter
+                    Specify alternative python interpreter
 
     -r <requirements.txt>, --requirements <requirements.txt>
-                File to read requirements from [default: requirements.txt]
+                    File to read requirements from [default: requirements.txt]
 
-    -v, --version                   Show program version
-    -h, --help                      This help
+    -v, --version   Show program version
+    -h, --help      This help
 '''
 
 from __future__ import unicode_literals
