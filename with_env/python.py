@@ -3,10 +3,15 @@
 Run program within a python environment with specified list of packages.
 
 Usage:
-    with-python [options] <requirements.txt> [--] <program> [<args>...]
+    with-req [options] [--] <program> [<args>...]
 
 Options:
-    -p <python>, --python <python>  Specify alternative python interpreter
+    -p <python>, --python <python>
+                Specify alternative python interpreter
+
+    -r <requirements.txt>, --requirements <requirements.txt>
+                File to read requirements from [default: requirements.txt]
+
     -v, --version                   Show program version
     -h, --help                      This help
 '''
@@ -64,7 +69,7 @@ def main():
     args = docopt(__doc__, version=VERSION, options_first=True)
 
     custom_python = args['--python']
-    requirements_txt = args['<requirements.txt>']
+    requirements_txt = args['--requirements']
     program = args['<program>']
     program_args = args['<args>']
 
