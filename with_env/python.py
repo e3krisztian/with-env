@@ -62,7 +62,7 @@ def install_packages(requirements_txt):
 
 def call_program(program, program_args):
     cmd = [program] + program_args
-    subprocess.check_call(cmd)
+    return subprocess.call(cmd)
 
 
 def main():
@@ -79,7 +79,8 @@ def main():
         enter_virtualenv(virtualenv_dir)
         install_packages(requirements_txt)
 
-        call_program(program, program_args)
+        retcode = call_program(program, program_args)
+        raise SystemExit(retcode)
     finally:
         remove_directory(virtualenv_dir)
 

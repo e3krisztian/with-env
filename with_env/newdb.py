@@ -34,15 +34,15 @@ def generate_database_name(prefix):
 
 def call_program(program, program_args):
     cmd = [program] + program_args
-    subprocess.check_call(cmd)
+    return subprocess.call(cmd)
 
 
 def create_database(database_name):
-    call_program('createdb', ['--encoding=UTF8', database_name])
+    subprocess.check_call(['createdb', '--encoding=UTF8', database_name])
 
 
 def drop_database(database_name):
-    return call_program('dropdb', [database_name])
+    subprocess.check_call(['dropdb', database_name])
 
 
 def make_database_default(database_name):
@@ -62,7 +62,8 @@ def main():
     try:
         make_database_default(database_name)
 
-        call_program(program, program_args)
+        retcode = call_program(program, program_args)
+        raise SystemExit(retcode)
     finally:
         if not keep_database:
             drop_database(database_name)
