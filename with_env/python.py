@@ -3,7 +3,7 @@
 Run program within a python environment with specified list of packages.
 
 Usage:
-    with-req [options] [--] <program> [<args>...]
+    in-virtualenv [options] [--] <program> [<args>...]
 
 Options:
     -p <python>, --python <python>
@@ -43,7 +43,7 @@ def remove_directory(directory):
 def create_virtualenv(custom_python, virtualenv_dir):
     cmd = (
         ['virtualenv', '--quiet']
-        + (['-p', custom_python] if custom_python else [])
+        + (['--python', custom_python] if custom_python else [])
         + [virtualenv_dir]
     )
     subprocess.check_call(cmd)
