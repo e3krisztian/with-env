@@ -21,6 +21,7 @@ from . import VERSION
 
 from datetime import datetime
 import os
+import sys
 import subprocess
 from docopt import docopt
 
@@ -38,11 +39,13 @@ def call_program(program, program_args):
 
 
 def create_database(database_name):
-    subprocess.check_call(['createdb', '--encoding=UTF8', database_name])
+    cmd = ['createdb', '--encoding=UTF8', database_name]
+    subprocess.check_call(cmd, stdout=sys.stderr)
 
 
 def drop_database(database_name):
-    subprocess.check_call(['dropdb', database_name])
+    cmd = ['dropdb', database_name]
+    subprocess.check_call(cmd, stdout=sys.stderr)
 
 
 def make_database_default(database_name):

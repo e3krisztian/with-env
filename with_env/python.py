@@ -22,6 +22,7 @@ from __future__ import print_function
 from . import VERSION
 
 import os
+import sys
 import shutil
 import subprocess
 import tempfile
@@ -46,7 +47,7 @@ def create_virtualenv(custom_python, virtualenv_dir):
         + (['--python', custom_python] if custom_python else [])
         + [virtualenv_dir]
     )
-    subprocess.check_call(cmd)
+    subprocess.check_call(cmd, stdout=sys.stderr)
 
 
 def enter_virtualenv(virtualenv_dir):
@@ -57,7 +58,7 @@ def enter_virtualenv(virtualenv_dir):
 
 def install_packages(requirements_txt):
     cmd = ['pip', 'install', '-r', requirements_txt, '--quiet']
-    subprocess.check_call(cmd)
+    subprocess.check_call(cmd, stdout=sys.stderr)
 
 
 def call_program(program, program_args):
