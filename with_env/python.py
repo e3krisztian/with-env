@@ -1,38 +1,31 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 '''
 Run program within a python environment with specified list of packages.
 
-Usage:
-    in-virtualenv [options] [--] <program> [<args>...]
-
-Options:
-    -p <python>, --python <python>
-                    Specify alternative python interpreter
-
-    -r <requirements.txt>, --requirements <requirements.txt>
-                    File to read requirements from [default: requirements.txt]
-
-    --recreate      Delete cached virtualenv and create it again
-    --no-cache      Ignore cached virtualenv and use a temporary one
-
-    --verbose       Show what's happening
-    -v, --version   Show program version
-    -h, --help      This help
+The environment is defined in a requirements.txt
 '''
 
 from __future__ import unicode_literals
 from __future__ import print_function
 
-from . import VERSION
+from . import VERSION as __version__
 
+import argparse
+import argcomplete
 import hashlib
 import os
 import sys
 import shutil
 import subprocess
 import tempfile
-from docopt import docopt
 
+try:
+    # Py3
+    from os import getcwdb as os_getcwdb
+except:
+    # Py2
+    from os import getcwd as os_getcwdb
 
 # environment variables
 PATH = 'PATH'
@@ -58,6 +51,8 @@ def create_virtualenv(custom_python, virtualenv_dir):
 
 
 def install_packages(requirements_txt):
+    if os.path.getsize(requirements_txt) == 0:
+        return
     cmd = ['pip', 'install', '-r', requirements_txt, '--quiet']
     subprocess.check_call(cmd, stdout=sys.stderr)
 
@@ -127,11 +122,18 @@ class CachedVirtualenv(Virtualenv):
 
     @property
     def virtualenv_hash(self):
+        sha1 = hashlib.sha1()
+
+        def add_part(bytes):
+            sha1.update(str(len(bytes)).encode('utf-8'))
+            sha1.update(':'.encode('utf-8'))
+            sha1.update(bytes)
+
+        add_part((self.custom_python or '').encode('utf-8'))
+        add_part(os_getcwdb())
         with open(self.requirements_txt, 'rb') as f:
-            sha1 = hashlib.sha1((self.custom_python or '').encode('utf-8'))
-            sha1.update('\n')
-            sha1.update(f.read())
-            return sha1.hexdigest()
+            add_part(f.read())
+        return sha1.hexdigest()
 
     @property
     def cache_dir(self):
@@ -141,15 +143,15 @@ class CachedVirtualenv(Virtualenv):
 
 
 def virtualenv(args, note):
-    custom_python = args['--python']
-    requirements_txt = args['--requirements']
+    custom_python = args.python
+    requirements_txt = args.requirements
 
-    if args['--no-cache']:
+    if args.no_cache:
         venv = TemporaryVirtualenv(custom_python, requirements_txt, note)
     else:
         venv = CachedVirtualenv(custom_python, requirements_txt, note)
 
-        if args['--recreate']:
+        if args.recreate:
             note('Removing {}', venv.virtualenv_dir)
             remove_directory(venv.virtualenv_dir)
 
@@ -166,12 +168,49 @@ def verbose_note(msg, *args, **kwargs):
     sys.stderr.write('\n'.encode('utf-8'))
 
 
-def main():
-    args = docopt(__doc__, version=VERSION, options_first=True)
+DESCRIPTION = '''\
+Run program within a python environment with specified list of packages.
+'''
 
-    program = args['<program>']
-    program_args = args['<args>']
-    note = verbose_note if args['--verbose'] else silent_note
+
+def make_parser():
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    arg = parser.add_argument
+    # options
+    arg('-p', '--python',
+        help='Specify alternative python interpreter')
+    arg(
+        '-r', '--requirements',
+        metavar='REQUIREMENTS.TXT',
+        default='requirements.txt',
+        help='File to read requirements from (default: %(default)s)'
+    ).completer = argcomplete.completers.FilesCompleter
+    arg('--recreate',
+        action='store_true', default=False,
+        help='Delete cached virtualenv and create it again')
+    arg('--no-cache',
+        action='store_true', default=False,
+        help='Ignore cached virtualenv and use a temporary one')
+    arg('-v', '--verbose',
+        action='store_true', default=False,
+        help='''Show what's happening''')
+    arg('--version', action='version', version='%(prog)s ' + __version__)
+    # mandatory arguments
+    arg('program',
+        help='Program to execute in the virtualenv, bash is a useful value')
+    arg('args', nargs='*',
+        help='Parameters to pass to the program')
+    return parser
+
+
+def main():
+    parser = make_parser()
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+
+    program = args.program
+    program_args = args.args
+    note = verbose_note if args.verbose else silent_note
 
     with virtualenv(args, note=note):
         note('Executing {} {}', program, ' '.join(program_args))
