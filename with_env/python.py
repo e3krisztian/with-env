@@ -13,7 +13,9 @@ from . import VERSION as __version__
 
 import argparse
 import argcomplete
+from datetime import datetime
 import hashlib
+import heapq
 import os
 import sys
 import shutil
@@ -31,6 +33,9 @@ except:
 PATH = 'PATH'
 VIRTUAL_ENV = 'VIRTUAL_ENV'
 XDG_CACHE_HOME = 'XDG_CACHE_HOME'
+
+# cache size
+MAX_CACHED_VIRTUALENVS = 10
 
 
 def new_temporary_directory(prefix):
@@ -61,6 +66,8 @@ def call_program(program, program_args):
     cmd = [program] + program_args
     return subprocess.call(cmd)
 
+TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S %f'
+
 
 class Virtualenv(object):
 
@@ -84,9 +91,58 @@ class Virtualenv(object):
 
     def activate(self):
         self.note('Activating virtualenv {}', self.virtualenv_dir)
+        write_activate_timestamp(self.virtualenv_dir)
         os.environ[VIRTUAL_ENV] = self.virtualenv_dir
         virtualenv_bin = os.path.join(self.virtualenv_dir, 'bin')
         os.environ[PATH] = virtualenv_bin + os.pathsep + os.environ[PATH]
+
+
+def activate_timestamp_file(virtualenv_dir):
+    return os.path.join(virtualenv_dir, 'activate.ts')
+
+
+def write_activate_timestamp(virtualenv_dir):
+    activate_ts = activate_timestamp_file(virtualenv_dir)
+    with open(activate_ts, 'wb') as timestamp:
+        timestamp.write(
+            datetime.now().strftime(TIMESTAMP_FORMAT).encode('utf-8'))
+
+
+def read_activate_timestamp(virtualenv_dir):
+    activate_ts = activate_timestamp_file(virtualenv_dir)
+    with open(activate_ts, 'rb') as ts_file:
+        ts_string = ts_file.read().decode('utf-8')
+        return datetime.strptime(ts_string, TIMESTAMP_FORMAT)
+
+
+def remove_old_virtualenvs():
+    lru = []
+    cache_dir = virtualenv_cache_dir()
+    virtualenvs = os.listdir(cache_dir)
+    if len(virtualenvs) <= MAX_CACHED_VIRTUALENVS:
+        return
+
+    for dir in virtualenvs:
+        virtualenv_dir = os.path.join(cache_dir, dir)
+        try:
+            ts = read_activate_timestamp(virtualenv_dir)
+            heapq.heappush(lru, (ts, virtualenv_dir))
+        except IOError:
+            # not a virtualenv?
+            remove_directory(virtualenv_dir)
+        if len(lru) > MAX_CACHED_VIRTUALENVS:
+            ts, virtualenv_dir = heapq.heappop(lru)
+            remove_directory(virtualenv_dir)
+
+
+def cache_dir():
+    if XDG_CACHE_HOME in os.environ:
+        return os.environ[XDG_CACHE_HOME]
+    return os.path.expanduser('~/.cache')
+
+
+def virtualenv_cache_dir():
+    return os.path.join(cache_dir(), 'python-virtualenvs')
 
 
 class TemporaryVirtualenv(Virtualenv):
@@ -106,16 +162,14 @@ class CachedVirtualenv(Virtualenv):
     def __init__(self, *args, **kwargs):
         super(CachedVirtualenv, self).__init__(*args, **kwargs)
         self.virtualenv_dir = os.path.join(
-            self.cache_dir,
-            'python-virtualenvs',
-            self.virtualenv_hash
-        )
+            virtualenv_cache_dir(), self.virtualenv_hash)
 
     def __enter__(self):
         if not os.path.isdir(self.virtualenv_dir):
             self.install()
         else:
             self.activate()
+        remove_old_virtualenvs()
 
     def __exit__(self, *args, **kwargs):
         pass
@@ -134,12 +188,6 @@ class CachedVirtualenv(Virtualenv):
         with open(self.requirements_txt, 'rb') as f:
             add_part(f.read())
         return sha1.hexdigest()
-
-    @property
-    def cache_dir(self):
-        if XDG_CACHE_HOME in os.environ:
-            return os.environ[XDG_CACHE_HOME]
-        return os.path.expanduser('~/.cache')
 
 
 def virtualenv(args, note):
